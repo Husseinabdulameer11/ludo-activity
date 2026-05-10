@@ -32,6 +32,12 @@ export async function initDiscord(): Promise<DiscordContext> {
   const sdk = new DiscordSDK(CLIENT_ID);
   await sdk.ready();
 
+  // Patch all URLs to go through Discord's proxy (required for both test and production)
+  const { patchUrlMappings } = await import("@discord/embedded-app-sdk");
+  patchUrlMappings([
+    { prefix: "/.proxy/colyseus", target: "ludo-activity.onrender.com" },
+  ]);
+
   const { code } = await sdk.commands.authorize({
     client_id: CLIENT_ID,
     response_type: "code",
