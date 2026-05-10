@@ -5,7 +5,19 @@
 import * as Colyseus from "colyseus.js";
 import { LudoGameState, ServerMessage, ClientMessage } from "@ludo/shared";
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL as string ?? "ws://localhost:2567";
+// When running inside Discord, all traffic must go through the discordsays.com proxy.
+// We detect this by checking if the page origin ends with .discordsays.com.
+function resolveServerUrl(): string {
+  const envUrl = import.meta.env.VITE_SERVER_URL as string;
+  if (typeof window !== "undefined" && window.location.hostname.endsWith(".discordsays.com")) {
+    // Build the proxied WebSocket URL from the current origin
+    const clientId = window.location.hostname.split(".")[0];
+    return `wss://${clientId}.discordsays.com/.proxy/colyseus`;
+  }
+  return envUrl ?? "ws://localhost:2567";
+}
+
+const SERVER_URL = resolveServerUrl();
 
 let _client: Colyseus.Client | null = null;
 let _room: Colyseus.Room<LudoGameState> | null = null;
