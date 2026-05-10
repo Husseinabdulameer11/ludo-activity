@@ -11,15 +11,8 @@ import "dotenv/config";
 const PORT = parseInt(process.env.PORT ?? "2567", 10);
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: true }));
 app.use(express.json());
-
-app.use(cors({
-  origin: [
-    "http://localhost:3000",
-    "https://ricky-unagile-georgeanna.ngrok-free.app"
-  ]
-}));
 
 // Health check for Discord Activity hosting
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
