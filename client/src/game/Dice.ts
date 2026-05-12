@@ -76,10 +76,11 @@ export class DiceSprite {
 
   /** Animate a roll then land on `value`. Calls onComplete when done. */
   showResult(value: number, onComplete?: () => void) {
-    this.rolling = true;
-    this.enabled = false;
-    this.container.setAlpha(0.4);
-    let frame = 0;
+  this.rolling = true;
+  this.enabled = false;
+  this.scene.tweens.killTweensOf(this.container); 
+  this.container.setAlpha(0.4);
+  let frame = 0;
 
     this.rollTimer = setInterval(() => {
       const showVal = frame < ROLL_FRAMES - 1
@@ -96,20 +97,26 @@ export class DiceSprite {
     }, FRAME_DELAY);
   }
 
-  private shakeAnimation(onComplete?: () => void) {
-    const originX = this.container.x;
-    this.scene.tweens.add({
-      targets: this.container,
-      x: originX + 6,
-      duration: 50,
-      yoyo: true,
-      repeat: 3,
-      onComplete: () => {
-        this.container.x = originX;
-        onComplete?.();
-      },
-    });
-  }
+private shakeAnimation(onComplete?: () => void) {
+  const originX = this.container.x;
+  const originY = this.container.y;
+
+  // Kill any lingering tweens (scale hovers etc.) before animating
+  this.scene.tweens.killTweensOf(this.container);
+
+  this.scene.tweens.add({
+    targets: this.container,
+    x: originX + 6,
+    duration: 50,
+    yoyo: true,
+    repeat: 3,
+    onComplete: () => {
+      // Snap back to exact origin — no drift
+      this.container.setPosition(originX, originY);
+      onComplete?.();
+    },
+  });
+}
 
   private drawFace(value: number) {
     const g = this.graphics;
