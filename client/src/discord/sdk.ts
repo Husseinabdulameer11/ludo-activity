@@ -27,16 +27,27 @@ let _ctx: DiscordContext | null = null;
 export async function initDiscord(): Promise<DiscordContext> {
   if (_ctx) return _ctx;
 
-  // ── Always run the real Discord OAuth flow ────────────────────────────────
+  const IS_DEV = (import.meta as any).env.DEV;
+  if (IS_DEV) {
+    _ctx = {
+      sdk: null,
+      channelId: "dev-channel",
+      guildId: "dev-guild",
+      user: { id: "dev-user-001", username: "DevPlayer", avatar: null },
+      participants: [
+        { id: "dev-user-001", username: "DevPlayer", avatar: null },
+      ],
+      accessToken: "dev-token",
+    };
+    return _ctx;
+  }
+
   const sdk = new DiscordSDK(CLIENT_ID);
   await sdk.ready();
 
-  // Patch all URLs to go through Discord's proxy (required for both test and production)
   const { patchUrlMappings } = await import("@discord/embedded-app-sdk");
-const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;patchUrlMappings([
-  { prefix: "/colyseus", target: serverHost },
-
-]);
+  const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;
+  patchUrlMappings([{ prefix: "/colyseus", target: serverHost }]);
 
   const { code } = await sdk.commands.authorize({
     client_id: CLIENT_ID,
@@ -46,10 +57,10 @@ const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;patchUrlM
     scope: ["identify", "guilds.members.read"],
   });
 
-const tokenRes = await fetch(`/api/token?code=${code}`, {
-  method: "GET",
-  headers: { "Content-Type": "application/json" },
-});
+  const tokenRes = await fetch(`/api/token?code=${code}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
   const { access_token } = await tokenRes.json();
 
   await sdk.commands.authenticate({ access_token });
@@ -65,11 +76,7 @@ const tokenRes = await fetch(`/api/token?code=${code}`, {
     sdk,
     channelId: sdk.channelId ?? "unknown",
     guildId: sdk.guildId ?? null,
-    user: {
-      id: user.id,
-      username: user.username,
-      avatar: user.avatar,
-    },
+    user: { id: user.id, username: user.username, avatar: user.avatar },
     participants,
     accessToken: access_token,
   };
