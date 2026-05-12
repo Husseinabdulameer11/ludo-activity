@@ -46,7 +46,7 @@ const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;patchUrlM
     scope: ["identify", "guilds.members.read"],
   });
 
-  const tokenRes = await fetch("/api/token", {
+  const tokenRes = await fetch("https://ludo-activity.pages.dev/api/token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ code }),
