@@ -57,9 +57,8 @@ export const HOME_STRETCH_CELLS: Record<PlayerColor, [number, number][]> = {
 // centre, so passing 1.5 was adding an extra half-cell offset and pushing
 // pieces off-centre inside each yard.
 const YARD_SLOTS: [number, number][] = [
-  [1, 1], [1, 4], [4, 1], [4, 4],
+  [1, 1], [1, 3], [4, 1], [4, 3],
 ];
-
 export function cellToPixel(row: number, col: number): { x: number; y: number } {
   return {
     x: col * CELL + CELL / 2,
