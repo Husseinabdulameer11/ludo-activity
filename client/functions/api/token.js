@@ -1,4 +1,21 @@
-export async function onRequestPost(context) {
+export async function onRequest(context) {
+  if (context.request.method === "OPTIONS") {
+    return new Response(null, {
+      headers: {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    });
+  }
+
+  if (context.request.method !== "POST") {
+    return new Response(JSON.stringify({ error: "Method not allowed" }), {
+      status: 405,
+      headers: { "Content-Type": "application/json" }
+    });
+  }
+
   const body = await context.request.json();
   const { code } = body;
 
@@ -22,28 +39,11 @@ export async function onRequestPost(context) {
 
   const data = await response.json();
   console.log("Discord token response:", JSON.stringify(data));
-  
-  if (!response.ok) {
-    return new Response(JSON.stringify({ error: data }), {
-      status: response.status,
-      headers: { "Content-Type": "application/json" }
-    });
-  }
 
   return new Response(JSON.stringify({ access_token: data.access_token }), {
-    headers: { 
+    headers: {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*"
-    },
-  });
-}
-
-export async function onRequestOptions() {
-  return new Response(null, {
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
     },
   });
 }
