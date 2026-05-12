@@ -11,6 +11,6 @@
       "@ludo/shared": ["../shared/src/index.ts"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../functions"],
   "exclude": ["node_modules", "dist"]
 }
