@@ -5,7 +5,7 @@
  */
 
 import { DiscordSDK } from "@discord/embedded-app-sdk";
-
+console.log("ENV:", (import.meta as any).env);
 export interface DiscordParticipant {
   id: string;
   username: string;
@@ -21,8 +21,7 @@ export interface DiscordContext {
   accessToken: string;
 }
 
-const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID as string;
-
+const CLIENT_ID = (import.meta as any).env.VITE_DISCORD_CLIENT_ID as string;
 let _ctx: DiscordContext | null = null;
 
 export async function initDiscord(): Promise<DiscordContext> {
@@ -34,9 +33,9 @@ export async function initDiscord(): Promise<DiscordContext> {
 
   // Patch all URLs to go through Discord's proxy (required for both test and production)
   const { patchUrlMappings } = await import("@discord/embedded-app-sdk");
-  patchUrlMappings([
-    { prefix: "/.proxy/colyseus", target: "ludo-activity.onrender.com" },
-  ]);
+const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;patchUrlMappings([
+  { prefix: "/colyseus", target: serverHost },
+]);
 
   const { code } = await sdk.commands.authorize({
     client_id: CLIENT_ID,

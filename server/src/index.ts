@@ -14,6 +14,10 @@ const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 
+app.use((req, _res, next) => {
+  console.log("INCOMING:", req.method, req.path);
+  next();
+});
 // Health check for Discord Activity hosting
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 

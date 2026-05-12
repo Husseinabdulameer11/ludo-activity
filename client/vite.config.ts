@@ -9,6 +9,13 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+   allowedHosts: ["a111-213-145-184-77.ngrok-free.app"],
+
+   headers: {
+  "X-Frame-Options": "ALLOWALL",
+  "Content-Security-Policy": "frame-ancestors *",
+  "ngrok-skip-browser-warning": "true",
+},
     proxy: {
       "/api": {
         target: "http://localhost:2567",
