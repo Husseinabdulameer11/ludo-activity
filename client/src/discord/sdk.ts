@@ -35,7 +35,7 @@ export async function initDiscord(): Promise<DiscordContext> {
   const { patchUrlMappings } = await import("@discord/embedded-app-sdk");
 const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;patchUrlMappings([
   { prefix: "/colyseus", target: serverHost },
-  { prefix: "/api/token", target: serverHost }
+
 ]);
 
   const { code } = await sdk.commands.authorize({
