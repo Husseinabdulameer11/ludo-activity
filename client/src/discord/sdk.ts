@@ -46,13 +46,9 @@ const serverHost = (import.meta as any).env.VITE_SERVER_HOST as string;patchUrlM
     scope: ["identify", "guilds.members.read"],
   });
 
-const tokenRes = await fetch("/api/token", {
-  method: "POST",
-  headers: { 
-    "Content-Type": "application/json",
-    "x-discord-timezone": "UTC"
-  },
-  body: JSON.stringify({ code }),
+const tokenRes = await fetch(`/api/token?code=${code}`, {
+  method: "GET",
+  headers: { "Content-Type": "application/json" },
 });
   const { access_token } = await tokenRes.json();
 
