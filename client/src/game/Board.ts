@@ -30,7 +30,7 @@ const YARD_ORIGINS: Record<PlayerColor, { row: number; col: number }> = {
 // The 52 main track squares as [row, col] pairs (classic Ludo layout)
 export const TRACK_CELLS: [number, number][] = [
   // Red start → clockwise
-  [6,1],[6,2],[6,3],[6,4],[6,5],
+  [6,0],[6,1],[6,2],[6,3],[6,4],[6,5],
   [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
   [0,7],
   [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],
@@ -57,7 +57,7 @@ export const HOME_STRETCH_CELLS: Record<PlayerColor, [number, number][]> = {
 // centre, so passing 1.5 was adding an extra half-cell offset and pushing
 // pieces off-centre inside each yard.
 const YARD_SLOTS: [number, number][] = [
-  [1.5, 1.5], [1.5, 3.5], [3.5, 1.5], [3.5, 3.5],
+  [4, 3], [4, 5], [6, 3], [6, 5],
 ];
 export function cellToPixel(row: number, col: number): { x: number; y: number } {
   return {
@@ -79,9 +79,10 @@ export function homeStretchToPixel(color: PlayerColor, step: number): { x: numbe
 export function yardSlotToPixel(color: PlayerColor, slotIndex: number): { x: number; y: number } {
   const origin = YARD_ORIGINS[color];
   const [dr, dc] = YARD_SLOTS[slotIndex];
-  return cellToPixel(origin.row + dr, origin.col + dc);
+  const x = (origin.col + dc) * CELL;
+  const y = (origin.row + dr) * CELL;
+  return { x, y };
 }
-
 export function drawBoard(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
   const g = scene.add.graphics();
 
