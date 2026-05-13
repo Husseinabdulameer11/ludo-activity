@@ -163,6 +163,10 @@ export class LudoRoom extends Room<LudoGameState> {
   private handleMovePiece(client: Client, pieceId: string) {
     const session = this.sessions.find((s) => s.client?.sessionId === client.sessionId);
     if (!session) return;
+    console.log("[MOVE] phase:", this.state.phase, "isCurrentPlayer:", this.isCurrentPlayer(session.player.id), "pieceId:", pieceId);
+  console.log("[MOVE] dice:", this.state.dice);
+  console.log("[MOVE] validMoves:", getValidMoves(this.state, this.state.dice?.value ?? 0).map(m => m.pieceId));
+
     if (this.state.phase !== "moving") return;
     if (!this.isCurrentPlayer(session.player.id)) return;
 
@@ -270,6 +274,7 @@ export class LudoRoom extends Room<LudoGameState> {
   }
 
   private executeMove(move: MoveCandidate) {
+    const diceValue = this.state.dice!.value;
     let newState = applyMove(this.state, move);
 
     // Emit move event
