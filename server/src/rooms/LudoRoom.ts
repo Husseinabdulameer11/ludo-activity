@@ -18,6 +18,8 @@ import {
   advanceTurn,
   isGameOver,
   MoveCandidate,
+  SAFE_SQUARES,
+  STAR_SQUARES,
 } from "@ludo/shared";
 import { LudoAI, createAIPlayer } from "../ai/LudoAI";
 
@@ -51,6 +53,43 @@ export class LudoRoom extends Room<LudoGameState> {
 
   this.onMessage("MOVE_PIECE", (client, msg: { pieceId: string }) => {
     this.handleMovePiece(client, msg.pieceId);
+  });
+
+  // Debug only — teleport a piece to any square, applying capture rules
+  this.onMessage("DEBUG_TELEPORT", (_client, msg: { pieceId: string; location: string; square?: number; step?: number }) => {
+    const piece = this.state.pieces.find((p) => p.id === msg.pieceId);
+    if (!piece) return;
+
+    let newState: any = null;
+    if (msg.location === "track" && msg.square !== undefined) {
+      newState = { location: "track", square: msg.square };
+    } else if (msg.location === "yard") {
+      newState = { location: "yard" };
+    } else if (msg.location === "home_stretch" && msg.step !== undefined) {
+      newState = { location: "home_stretch", step: msg.step };
+    }
+    if (!newState) return;
+
+    // Apply captures if landing on a track square
+    if (newState.location === "track") {
+      const sq = newState.square;
+      const isSafe = SAFE_SQUARES.has(sq) || STAR_SQUARES.has(sq);
+      if (!isSafe) {
+        const captured = this.state.pieces.filter(
+          (p) => p.id !== msg.pieceId &&
+                 p.color !== piece.color &&
+                 p.state.location === "track" &&
+                 p.state.square === sq
+        );
+        for (const cap of captured) {
+          cap.state = { location: "yard" };
+          this.emitEvent({ type: "PIECE_CAPTURED", capturedPieceId: cap.id, byPieceId: msg.pieceId });
+        }
+      }
+    }
+
+    piece.state = newState;
+    this.broadcastState();
   });
 }
 
@@ -280,8 +319,8 @@ export class LudoRoom extends Room<LudoGameState> {
     // Emit move event
     this.emitEvent({ type: "PIECE_MOVED", pieceId: move.pieceId, from: move.from, to: move.to });
 
-    if (move.capturesId) {
-      this.emitEvent({ type: "PIECE_CAPTURED", capturedPieceId: move.capturesId, byPieceId: move.pieceId });
+    for (const capturedId of move.capturesIds) {
+      this.emitEvent({ type: "PIECE_CAPTURED", capturedPieceId: capturedId, byPieceId: move.pieceId });
     }
 
     if (move.isFinishing) {
@@ -305,7 +344,7 @@ export class LudoRoom extends Room<LudoGameState> {
     }
 
     // Bonus turn on 6 or capture
-    const getsBonus = this.state.dice?.value === 6 || !!move.capturesId;
+    const getsBonus = this.state.dice?.value === 6 || move.capturesIds.length > 0;
     if (getsBonus) {
       const currentPlayer = this.state.players[this.state.currentPlayerIndex];
       const reason = this.state.dice?.value === 6 ? "six" : "capture";

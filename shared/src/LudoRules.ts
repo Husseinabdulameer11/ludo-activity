@@ -46,7 +46,7 @@ export interface MoveCandidate {
   pieceId: string;
   from: PieceState;
   to: PieceState;
-  capturesId?: string; // piece id that would be captured
+  capturesIds: string[]; // piece ids that would be captured (can be 1 or more)
   isFinishing: boolean;
 }
 
@@ -85,12 +85,12 @@ function evaluateMove(
     const blockade = isBlockade(startSquare, piece.color, state);
     if (blockade) return null;
 
-    const capturesId = getCaptureAt(startSquare, piece.color, state);
+    const capturesIds = getCapturesAt(startSquare, piece.color, state);
     return {
       pieceId: piece.id,
       from: pos,
       to: { location: "track", square: startSquare },
-      capturesId,
+      capturesIds,
       isFinishing: false,
     };
   }
@@ -127,12 +127,12 @@ function evaluateMove(
     const newGlobal = localToGlobal(newLocalStep, piece.color);
     if (isBlockade(newGlobal, piece.color, state)) return null;
 
-    const capturesId = getCaptureAt(newGlobal, piece.color, state);
+    const capturesIds = getCapturesAt(newGlobal, piece.color, state);
     return {
       pieceId: piece.id,
       from: pos,
       to: { location: "track", square: newGlobal },
-      capturesId,
+      capturesIds,
       isFinishing: false,
     };
   }
@@ -146,6 +146,7 @@ function evaluateMove(
         pieceId: piece.id,
         from: pos,
         to: { location: "finished" },
+        capturesIds: [],
         isFinishing: true,
       };
     }
@@ -153,6 +154,7 @@ function evaluateMove(
       pieceId: piece.id,
       from: pos,
       to: { location: "home_stretch", step: newStep },
+      capturesIds: [],
       isFinishing: false,
     };
   }
@@ -161,42 +163,59 @@ function evaluateMove(
 }
 
 /**
- * Returns true if landing on this global square would be blocked
- * by two or more pieces of the same color (a blockade).
+ * Returns true if landing on this global square is blocked.
+ * A blockade = 2+ pieces of the SAME color as each other on a safe square,
+ * OR 2+ same-color opponents on a non-safe square where capture isn't possible.
+ *
+ * Key rule: if there are ANY opponent pieces to capture, it's never a blockade —
+ * you can always land to capture. A blockade only applies to your OWN color
+ * stacking (you can't land on a square already holding 2+ of your own pieces).
  */
 function isBlockade(
   globalSquare: number,
   myColor: PlayerColor,
   state: LudoGameState
 ): boolean {
-  const sameColorThere = state.pieces.filter(
-    (p) =>
-      p.color === myColor &&
-      p.state.location === "track" &&
-      p.state.square === globalSquare
+  const piecesOnSquare = state.pieces.filter(
+    (p) => p.state.location === "track" && p.state.square === globalSquare
   );
-  return sameColorThere.length >= 2;
+
+  // Own pieces: blocked if 2+ of my own color already there
+  const myPiecesOnSquare = piecesOnSquare.filter((p) => p.color === myColor);
+  if (myPiecesOnSquare.length >= 2) return true;
+
+  // Opponent pieces: only a blockade on safe/star squares (can't capture there)
+  // On normal squares, you can always land to capture
+  const opponentsThere = piecesOnSquare.filter((p) => p.color !== myColor);
+  if (opponentsThere.length >= 2) {
+    const allSameColor = opponentsThere.every((p) => p.color === opponentsThere[0].color);
+    const isProtected = SAFE_SQUARES.has(globalSquare) || STAR_SQUARES.has(globalSquare);
+    return allSameColor && isProtected;
+  }
+
+  return false;
 }
 
 /**
- * Returns the piece id of an opponent piece that would be captured
- * by landing on this square (if not safe).
+ * Returns ALL opponent piece ids that would be captured
+ * by landing on this square (if not safe, and not a blockade).
  */
-function getCaptureAt(
+function getCapturesAt(
   globalSquare: number,
   myColor: PlayerColor,
   state: LudoGameState
-): string | undefined {
-  if (SAFE_SQUARES.has(globalSquare)) return undefined;
-  if (STAR_SQUARES.has(globalSquare)) return undefined; // star squares are safe too
+): string[] {
+  if (SAFE_SQUARES.has(globalSquare)) return [];
+  if (STAR_SQUARES.has(globalSquare)) return [];
 
-  const target = state.pieces.find(
-    (p) =>
-      p.color !== myColor &&
-      p.state.location === "track" &&
-      p.state.square === globalSquare
-  );
-  return target?.id;
+  return state.pieces
+    .filter(
+      (p) =>
+        p.color !== myColor &&
+        p.state.location === "track" &&
+        p.state.square === globalSquare
+    )
+    .map((p) => p.id);
 }
 
 // ─── State Mutations (returns NEW state, never mutates) ───────────────────────
@@ -211,10 +230,12 @@ export function applyMove(
   const idx = pieces.findIndex((p) => p.id === move.pieceId);
   pieces[idx] = { ...pieces[idx], state: move.to };
 
-  // Handle capture
-  if (move.capturesId) {
-    const capIdx = pieces.findIndex((p) => p.id === move.capturesId);
-    pieces[capIdx] = { ...pieces[capIdx], state: { location: "yard" } };
+  // Handle captures — send every captured piece back to yard
+  for (const capturedId of move.capturesIds) {
+    const capIdx = pieces.findIndex((p) => p.id === capturedId);
+    if (capIdx !== -1) {
+      pieces[capIdx] = { ...pieces[capIdx], state: { location: "yard" } };
+    }
   }
 
   // Check if player finished all pieces

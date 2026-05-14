@@ -8,7 +8,7 @@ import Phaser from "phaser";
 import { PlayerColor, PLAYER_COLORS } from "@ludo/shared";
 
 export const BOARD_PX = 700; // logical board size in pixels
-const CELL = BOARD_PX / 15; // 15x15 grid
+export const CELL = BOARD_PX / 15; // 15x15 grid
 
 export const COLOR_HEX: Record<PlayerColor | "white" | "gray", number> = {
   red: 0xe74c3c,
@@ -57,7 +57,7 @@ export const HOME_STRETCH_CELLS: Record<PlayerColor, [number, number][]> = {
 // centre, so passing 1.5 was adding an extra half-cell offset and pushing
 // pieces off-centre inside each yard.
 const YARD_SLOTS: [number, number][] = [
-  [4, 3], [4, 5], [6, 3], [6, 5],
+  [2, 2], [2, 4], [4, 2], [4, 4],
 ];
 export function cellToPixel(row: number, col: number): { x: number; y: number } {
   return {
@@ -79,8 +79,8 @@ export function homeStretchToPixel(color: PlayerColor, step: number): { x: numbe
 export function yardSlotToPixel(color: PlayerColor, slotIndex: number): { x: number; y: number } {
   const origin = YARD_ORIGINS[color];
   const [dr, dc] = YARD_SLOTS[slotIndex];
-  const x = (origin.col + dc) * CELL;
-  const y = (origin.row + dr) * CELL;
+  const x = (origin.col + dc) * CELL + CELL / 2;
+  const y = (origin.row + dr) * CELL + CELL / 2;
   return { x, y };
 }
 export function drawBoard(scene: Phaser.Scene): Phaser.GameObjects.Graphics {
