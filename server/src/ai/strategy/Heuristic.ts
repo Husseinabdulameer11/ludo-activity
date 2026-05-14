@@ -21,7 +21,7 @@ import { PlayerColor, PLAYER_COLORS } from "@ludo/shared";
 
 /** Big reward for capturing an opponent */
 export function scoreCapture(move: MoveCandidate): number {
-  return move.capturesId ? 30 : 0;
+  return move.capturesIds.length > 0 ? 30 * move.capturesIds.length : 0;
 }
 
 /** Big reward for finishing a piece */

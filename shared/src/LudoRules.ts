@@ -113,6 +113,7 @@ function evaluateMove(
           pieceId: piece.id,
           from: pos,
           to: { location: "finished" },
+          capturesIds: [],
           isFinishing: true,
         };
       }
@@ -120,6 +121,7 @@ function evaluateMove(
         pieceId: piece.id,
         from: pos,
         to: { location: "home_stretch", step: homeStep },
+        capturesIds: [],
         isFinishing: false,
       };
     }
