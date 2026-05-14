@@ -29,8 +29,8 @@ export class GameScene extends Phaser.Scene {
   private statusText!: Phaser.GameObjects.Text;
   private turnIndicator!: Phaser.GameObjects.Text;
   private debugText!: Phaser.GameObjects.Text;
-  private unsubState!: () => void;
-  private unsubEvent!: () => void;
+  private boardX: number = 0;
+  private boardY: number = 0;
 
   constructor() {
     super({ key: "GameScene" });
@@ -51,6 +51,8 @@ export class GameScene extends Phaser.Scene {
 
     const boardX = (W - BOARD_PX) / 2;
     const boardY = 80;
+    this.boardX = boardX;
+    this.boardY = boardY;
 
     const boardGraphics = drawBoard(this);
     boardGraphics.setPosition(boardX, boardY);
@@ -95,6 +97,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     this.unsubEvent = onEvent((msg: ServerMessage) => {
+      console.log("[GameScene] raw event msg:", msg);
       if (msg.type === "EVENT") this.handleEvent(msg.event);
     });
 
@@ -125,7 +128,7 @@ export class GameScene extends Phaser.Scene {
     for (const piece of this.gameState.pieces) {
       const sprite = new PieceSprite(this, piece, (pieceId) => {
         sendMessage({ type: "MOVE_PIECE", pieceId });
-      });
+      }, boardX, boardY);
       this.pieceSprites.set(piece.id, sprite);
     }
   }
@@ -175,15 +178,81 @@ export class GameScene extends Phaser.Scene {
       sprite.setSelectable(selectableIds.has(id));
     }
 
+    // First: sync any pieces whose visual state is behind the server (teleport, reconnect).
+    // Must happen BEFORE applyStackOffsets so stateToPixel uses the correct position.
     for (const piece of state.pieces) {
       const sprite = this.pieceSprites.get(piece.id);
-      if (sprite && JSON.stringify(sprite.data.state) !== JSON.stringify(piece.state)) {
-        sprite.moveTo(piece.state);
+      if (
+        sprite &&
+        !sprite.isTweening &&
+        JSON.stringify(sprite.data.state) !== JSON.stringify(piece.state)
+      ) {
+        sprite.snapTo(piece.state);
+      }
+    }
+
+    // Then spread pieces that share the same square so they're all visible.
+    this.applyStackOffsets(state);
+  }
+
+  private applyStackOffsets(state: LudoGameState) {
+    // Group pieces by board square key — home_stretch uses just step (same color
+    // can stack there; different colors can't share a square due to blockade rules)
+    const groups = new Map<string, string[]>();
+    for (const piece of state.pieces) {
+      const s = piece.state;
+      let key: string;
+      if (s.location === "track") key = `track-${s.square}`;
+      else if (s.location === "home_stretch") key = `hs-${piece.color}-${s.step}`;
+      else continue;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(piece.id);
+    }
+
+    // For stacked same-color pieces: shrink + small offset so both visible
+    // Stack of 2: scale 0.65, offset by ±quarter-radius
+    // Stack of 3-4: scale 0.55
+    const SPREAD = BOARD_PX / 15 * 0.22;
+    const stackLayouts: { offset: [number, number]; scale: number }[][] = [
+      // 1 piece — full size, centered
+      [{ offset: [0, 0], scale: 1.0 }],
+      // 2 pieces
+      [{ offset: [-SPREAD, -SPREAD], scale: 0.72 },
+       { offset: [ SPREAD,  SPREAD], scale: 0.72 }],
+      // 3 pieces
+      [{ offset: [-SPREAD, -SPREAD], scale: 0.60 },
+       { offset: [ SPREAD, -SPREAD], scale: 0.60 },
+       { offset: [      0,  SPREAD], scale: 0.60 }],
+      // 4 pieces
+      [{ offset: [-SPREAD, -SPREAD], scale: 0.55 },
+       { offset: [ SPREAD, -SPREAD], scale: 0.55 },
+       { offset: [-SPREAD,  SPREAD], scale: 0.55 },
+       { offset: [ SPREAD,  SPREAD], scale: 0.55 }],
+    ];
+
+    // Apply layout to every piece
+    for (const piece of state.pieces) {
+      const s = piece.state;
+      if (s.location !== "track" && s.location !== "home_stretch") continue;
+      const key = s.location === "track"
+        ? `track-${s.square}`
+        : `hs-${piece.color}-${s.step}`;
+      const ids = groups.get(key) ?? [];
+      const count = Math.min(ids.length, 4);
+      const layout = stackLayouts[count - 1] ?? stackLayouts[0];
+      const idx = ids.indexOf(piece.id);
+      const slot = layout[idx] ?? layout[0];
+      const sprite = this.pieceSprites.get(piece.id);
+      if (sprite) {
+        // Always apply scale so stacked pieces shrink/grow correctly.
+        // Skip repositioning if mid-tween — tween controls position.
+        sprite.setStackOffset(slot.offset, slot.scale, sprite.isTweening);
       }
     }
   }
 
   private handleEvent(event: GameEvent) {
+    console.log("[GameScene] handleEvent:", event.type, event);
     switch (event.type) {
       case "DICE_ROLLED": {
         this.diceSprite.showResult(event.value, () => this.syncUI());
@@ -196,7 +265,13 @@ export class GameScene extends Phaser.Scene {
       }
       case "PIECE_CAPTURED": {
         const captured = this.pieceSprites.get(event.capturedPieceId);
-        captured?.playCapture();
+        if (captured) {
+          captured.playCapture(() => {
+            // After bounce, snap back to yard position from current server state
+            const pieceData = this.gameState.pieces.find(p => p.id === event.capturedPieceId);
+            if (pieceData) captured.snapTo(pieceData.state);
+          });
+        }
         break;
       }
       case "PIECE_FINISHED": {

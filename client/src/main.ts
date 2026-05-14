@@ -90,3 +90,24 @@ boot().catch((err) => {
   console.error("Boot failed:", err);
   document.getElementById("loading")!.textContent = "Failed to connect. Please refresh.";
 });
+
+// ─── Debug helpers (open browser console and type e.g. ludo.tp("red-0", 5)) ──
+import { sendMessage } from "./game/Connection";
+(window as any).ludo = {
+  /** Teleport a piece to a track square.  e.g. ludo.tp("red-0", 5) */
+  tp: (pieceId: string, square: number) =>
+    sendMessage({ type: "DEBUG_TELEPORT", pieceId, location: "track", square } as any),
+  /** Send a piece back to yard.  e.g. ludo.yard("blue-2") */
+  yard: (pieceId: string) =>
+    sendMessage({ type: "DEBUG_TELEPORT", pieceId, location: "yard" } as any),
+  /** Teleport to home stretch step.  e.g. ludo.hs("green-1", 3) */
+  hs: (pieceId: string, step: number) =>
+    sendMessage({ type: "DEBUG_TELEPORT", pieceId, location: "home_stretch", step } as any),
+  help: () => console.log(`
+ludo.tp("red-0", 5)        — move red piece 1 to track square 5
+ludo.tp("yellow-0", 5)     — move yellow piece 1 to same square (test stacking)
+ludo.tp("blue-0", 5)       — move blue to square 5 (should capture red+yellow)
+ludo.yard("red-0")         — send red-0 back to yard
+ludo.hs("green-0", 3)      — move green-0 to home stretch step 3
+  `),
+};
